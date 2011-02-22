@@ -38,7 +38,7 @@ void setKernelProperty(int &threads, int &blocks, long size) {
 	}
 }
 
-// --------------------------------- CUSPARSE Helper Functions 
+// --------------------------------- CUSPARSE Functions 
 
 /* Rebuild a matrix to sparse COO form */
 COO sparseBuilder(float* A, long size) {
@@ -96,8 +96,7 @@ void sparseClean(COO A_h, COO A_d) {
 	cudaFree(A_d.data); cudaFree(A_d.col); cudaFree(A_d.row);
 }
 
-// --------------------------------- CUDA Helper Functions 
-
+// --------------------------------- CUDA Functions 
 
 // Divide one row with a scalor 
 __global__ void pivot(float *pivot, float scaler, long size) {
@@ -149,6 +148,22 @@ int main() {
 
 /**********************************************************************/
 /**********************************************************************/
+
+/* CPU back substituation */
+void backSub(float* A, float* x, long size) {
+	
+	printf("Performing CPU Backward Substitution\n");
+	x[size-1] = A[(size-1) + size*size]; // Compute the most bottom element
+   	
+   	long i, j;
+   	
+   	for (i = size-1; i >= 0; i--)	{
+    	float sum = 0;
+      	for (j = i+1; j < size; j++)
+            sum = sum + A[i+size*j] * x[j];
+      	x[i] = (A[i+size*size] - sum);
+   	}    
+}
 
 /* General Gaussian elimination */
 void navie_gaussian_cublas(float* A, float* x, long size) {
@@ -220,19 +235,10 @@ void navie_gaussian_cublas(float* A, float* x, long size) {
 		cublasFree(d_pivot);
 		cublasFree(d_row);
 	}
-	cublasShutdown();
 
-	printf("Performing CPU Backward Substitution\n");
-	x[size-1] = A[(size-1) + size*size]; // Compute the most bottom element
+	backSub(A, x, size);
    	
-   	long i, j;
-   	
-   	for (i = size-1; i >= 0; i--)	{
-    	float sum = 0;
-      	for (j = i+1; j < size; j++)
-            sum = sum + A[i+size*j] * x[j];
-      	x[i] = (A[i+size*size] - sum);
-   	}    
+   	cublasShutdown();
    	
    	free(h_pivot);
    	free(h_row);
@@ -353,19 +359,10 @@ void partialPivot_gaussian_cublas(float* A, float* x, long size) {
 		cublasFree(d_pivot);
 		cublasFree(d_row);
 	}
+	
+	backSub(A, x, size);
+	
 	cublasShutdown();
-
-	printf("Performing CPU Backward Substitution\n");
-	x[size-1] = A[(size-1) + size*size]; // Compute the most bottom element
-   	
-   	long i, j;
-   	
-   	for (i = size-1; i >= 0; i--)	{
-    	float sum = 0;
-      	for (j = i+1; j < size; j++)
-            sum = sum + A[i+size*j] * x[j];
-      	x[i] = (A[i+size*size] - sum);
-   	} 
    	
    	free(h_pivot);
    	free(h_row);
@@ -434,24 +431,15 @@ void navie_gaussian_cublas_max(float* A, float* x, long size) {
 		}
 	}
 	
+	backSub(A, x, size);
+	
 	cublasFree(d_pivot);
 	cublasFree(d_row);
-	cublasShutdown();
-
-	printf("Performing CPU Backward Substitution\n");
-	x[size-1] = A[(size-1) + size*size]; // Compute the most bottom element
-   	
-   	long i, j;
-   	
-   	for (i = size-1; i >= 0; i--)	{
-    	float sum = 0;
-      	for (j = i+1; j < size; j++)
-            sum = sum + A[i+size*j] * x[j];
-      	x[i] = (A[i+size*size] - sum);
-   	}    
    	
    	free(h_pivot);
    	free(h_row);
+   	
+   	cublasShutdown();
 }
 
 
@@ -546,22 +534,13 @@ void navie_gaussian_cuda_max(float* A, float* x, long size) {
 		}
 	}
 	
+	backSub(A, x, size);
+	
 	/* Clean memory */
 	free(h_pivot); free(h_row);
 	cudaFree(d_pivot); cudaFree(d_row);
-	
-	printf("Performing CPU Backward Substitution\n");
-	x[size-1] = A[(size-1) + size*size]; // Compute the most bottom element
-   	
-   	long i, j;
-   	
-   	for (i = size-1; i >= 0; i--)	{
-    	float sum = 0;
-      	for (j = i+1; j < size; j++)
-            sum = sum + A[i+size*j] * x[j];
-      	x[i] = (A[i+size*size] - sum);
-   	}    
 }
+
 
 
 
